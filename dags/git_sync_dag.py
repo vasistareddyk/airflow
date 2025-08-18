@@ -181,6 +181,14 @@ sync_dags_task = BashOperator(
     echo "✅ DAG synchronization completed!"
     echo "📋 Current DAGs directory contents:"
     ls -la {DAGS_DIR}/
+    
+    # Update file timestamps to ensure Airflow detects changes
+    echo "🕒 Updating file timestamps to trigger DAG reprocessing..."
+    touch {DAGS_DIR}/*.py
+    
+    # Set proper permissions
+    echo "🔐 Setting proper file permissions..."
+    chmod 644 {DAGS_DIR}/*.py
     """,
     dag=dag,
 )
@@ -189,6 +197,17 @@ sync_dags_task = BashOperator(
 validate_task = PythonOperator(
     task_id="validate_sync",
     python_callable=validate_sync_results,
+    dag=dag,
+)
+
+# Force DAG reprocessing
+force_dag_refresh_task = BashOperator(
+    task_id="force_dag_refresh",
+    bash_command="""
+    echo "🔄 Forcing DAG reprocessing to update versions..."
+    airflow dags reserialize
+    echo "✅ DAG reprocessing completed!"
+    """,
     dag=dag,
 )
 
@@ -217,6 +236,7 @@ end_task = EmptyOperator(
     >> clone_repo_task
     >> sync_dags_task
     >> validate_task
+    >> force_dag_refresh_task
     >> final_cleanup_task
     >> end_task
 )
