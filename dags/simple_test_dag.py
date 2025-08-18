@@ -38,6 +38,7 @@ def print_hello_world():
     print("🎉 Hello World from Airflow 3.0!")
     print(f"⏰ Current time: {datetime.now()}")
     print(f"🚀 Running on Airflow version: {airflow.__version__}")
+    print("✨ Updated via Git Sync! This change was pulled from GitHub!")
     return f"Hello World from Airflow {airflow.__version__} completed successfully!"
 
 
