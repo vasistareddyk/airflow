@@ -1,0 +1,15 @@
+# Core Airflow dependencies compatible with Airflow 3.0
+apache-airflow-providers-postgres>=6.0.0
+apache-airflow-providers-celery>=3.4.0
+psycopg2-binary>=2.9.0
+redis>=5.0.0
+
+# Additional useful providers
+apache-airflow-providers-http>=4.7.0
+apache-airflow-providers-ftp>=3.6.0
+
+# Development and debugging tools
+flower>=2.0.0
+
+# Git support for repository synchronization
+GitPython>=3.1.0 
