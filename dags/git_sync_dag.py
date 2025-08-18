@@ -166,12 +166,16 @@ sync_dags_task = BashOperator(
     # Check if there's a dags directory in the cloned repo
     if [ -d "{TEMP_DIR}/dags" ]; then
         echo "📂 Syncing from repository dags directory..."
-        # Copy all Python files from repo dags directory
-        cp {TEMP_DIR}/dags/*.py {DAGS_DIR}/ 2>/dev/null || echo "⚠️  No Python files found in dags directory"
+        # Remove existing Python files first to ensure clean sync
+        rm -f {DAGS_DIR}/*.py
+        # Copy all Python files from repo dags directory with force overwrite
+        cp -f {TEMP_DIR}/dags/*.py {DAGS_DIR}/ 2>/dev/null || echo "⚠️  No Python files found in dags directory"
     else
         echo "📂 No dags directory found, syncing all Python files from repository root..."
-        # Copy all Python files from repository root
-        find {TEMP_DIR} -name "*.py" -type f -exec cp {{}} {DAGS_DIR}/ \\;
+        # Remove existing Python files first to ensure clean sync
+        rm -f {DAGS_DIR}/*.py
+        # Copy all Python files from repository root with force overwrite
+        find {TEMP_DIR} -name "*.py" -type f -exec cp -f {{}} {DAGS_DIR}/ \\;
     fi
     
     echo "✅ DAG synchronization completed!"
