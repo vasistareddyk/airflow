@@ -33,6 +33,7 @@ REPOSITORY STRUCTURE:
 from datetime import datetime, timedelta
 import os
 import shutil
+import glob
 from airflow import DAG
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.providers.standard.operators.python import PythonOperator
@@ -189,6 +190,10 @@ sync_dags_task = BashOperator(
     # Set proper permissions
     echo "🔐 Setting proper file permissions..."
     chmod 644 {DAGS_DIR}/*.py
+    
+    # Force a directory timestamp update
+    echo "📁 Updating directory timestamp..."
+    touch {DAGS_DIR}/
     """,
     dag=dag,
 )
@@ -200,14 +205,45 @@ validate_task = PythonOperator(
     dag=dag,
 )
 
-# Force DAG reprocessing
-force_dag_refresh_task = BashOperator(
+
+# Force DAG reprocessing using Python function
+def force_dag_refresh():
+    """Force DAG refresh by triggering file system change detection"""
+    import time
+    import os
+
+    print("🔄 Forcing DAG reprocessing to update versions...")
+
+    # Method 1: Update modification time of all Python files
+    dag_files = glob.glob(f"{DAGS_DIR}/*.py")
+    current_time = time.time()
+
+    for dag_file in dag_files:
+        # Update both access and modification time to current time
+        os.utime(dag_file, (current_time, current_time))
+        print(f"📝 Updated timestamp for: {os.path.basename(dag_file)}")
+
+    # Method 2: Create a temporary file to trigger directory change
+    temp_file = f"{DAGS_DIR}/.dag_refresh_trigger"
+    with open(temp_file, "w") as f:
+        f.write(f"DAG refresh triggered at {time.ctime()}")
+
+    # Remove the temp file immediately
+    time.sleep(1)
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
+
+    print("✅ DAG refresh triggers completed!")
+    print(
+        "⏰ Airflow should detect changes within 5 minutes (or immediately if dag processor is active)"
+    )
+
+    return "DAG refresh completed successfully"
+
+
+force_dag_refresh_task = PythonOperator(
     task_id="force_dag_refresh",
-    bash_command="""
-    echo "🔄 Forcing DAG reprocessing to update versions..."
-    airflow dags reserialize
-    echo "✅ DAG reprocessing completed!"
-    """,
+    python_callable=force_dag_refresh,
     dag=dag,
 )
 
