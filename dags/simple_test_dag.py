@@ -41,6 +41,7 @@ def print_hello_world():
     print("=" * 50)
     print("=" * 50)
     print("✨ Updated via Git Sync! This change was pulled from GitHub!")
+    print("🔄 Testing DAG version update functionality!")
     return f"Hello World from Airflow {airflow.__version__} completed successfully!"
 
 
