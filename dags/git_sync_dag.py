@@ -9,7 +9,7 @@ USAGE:
 3. The DAG will:
    - Clean up any temporary directories
    - Create a backup of current DAGs
-   - Clone the repository from: https://bitbucket.org/vasista1/airflow.git
+       - Clone the repository from: https://github.com/vasista1/airflow.git
    - Sync Python files from the repository to the DAGs directory
    - Validate the sync was successful
    - Clean up temporary files
@@ -22,7 +22,7 @@ SAFETY FEATURES:
 
 REQUIREMENTS:
 - Git must be available in the Airflow container
-- Network access to Bitbucket
+- Network access to GitHub
 - Write permissions to /opt/airflow/dags and /tmp directories
 
 REPOSITORY STRUCTURE:
@@ -60,7 +60,7 @@ dag = DAG(
 )
 
 # Configuration
-REPO_URL = "https://bitbucket.org/vasista1/airflow.git"
+REPO_URL = "https://github.com/vasista1/airflow.git"
 TEMP_DIR = "/tmp/airflow_repo_sync"
 DAGS_DIR = "/opt/airflow/dags"
 
