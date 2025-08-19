@@ -7,7 +7,7 @@ redis>=5.0.0
 # Additional useful providers
 apache-airflow-providers-http>=4.7.0
 apache-airflow-providers-ftp>=3.6.0
-apache-airflow-providers-git>=1.0.0
+apache-airflow-providers-git==0.0.6
 
 # Development and debugging tools
 flower>=2.0.0
