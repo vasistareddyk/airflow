@@ -92,7 +92,7 @@ def print_system_info():
     print(f"📅 LAST UPDATED: {LAST_UPDATED}")
     print(f"🔄 SYNC TIMESTAMP: {datetime.now().isoformat()}")
     print("=" * 50)
-    print("vasista 2.1.1")
+    print("vasista 2.1.2")
     return f"Airflow {airflow.__version__} system info completed!"
 
 
