@@ -8,9 +8,13 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
          vim \
          curl \
+         git \
   && apt-get autoremove -yqq --purge \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
+
+ENV GIT_PYTHON_GIT_EXECUTABLE=/usr/bin/git
+ENV GIT_PYTHON_REFRESH=quiet
 
 # Switch back to airflow user
 USER airflow

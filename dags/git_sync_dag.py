@@ -34,6 +34,7 @@ from datetime import datetime, timedelta
 import os
 import shutil
 import glob
+import re
 from airflow import DAG
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.providers.standard.operators.python import PythonOperator
@@ -64,6 +65,7 @@ dag = DAG(
 REPO_URL = "https://github.com/vasistareddyk/airflow.git"
 TEMP_DIR = "/tmp/airflow_repo_sync"
 DAGS_DIR = "/opt/airflow/dags"
+BACKUP_DIR = "/tmp/dags_backup_latest"
 
 
 def cleanup_temp_directory():
@@ -94,18 +96,20 @@ def validate_sync_results():
 
 
 def backup_current_dags():
-    """Create a backup of current DAGs before sync"""
-    backup_dir = f"/tmp/dags_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-
+    """Create a backup of current DAGs before sync into a fixed path"""
+    if os.path.exists(BACKUP_DIR):
+        shutil.rmtree(BACKUP_DIR)
     if os.path.exists(DAGS_DIR):
         shutil.copytree(
-            DAGS_DIR, backup_dir, ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
+            DAGS_DIR, BACKUP_DIR, ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
         )
-        print(f"💾 Created backup of current DAGs at: {backup_dir}")
+        print(f"💾 Created backup of current DAGs at: {BACKUP_DIR}")
     else:
-        print(f"📁 DAGs directory doesn't exist: {DAGS_DIR}")
-
-    return backup_dir
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+        print(
+            f"📁 DAGs directory doesn't exist: {DAGS_DIR}. Created empty backup at {BACKUP_DIR}"
+        )
+    return BACKUP_DIR
 
 
 # Define tasks
@@ -288,9 +292,41 @@ def force_dag_refresh():
     return f"DAG refresh completed successfully - {len(dag_files)} files processed"
 
 
+def update_dag_versions():
+    backup_dir = BACKUP_DIR
+    dag_files = glob.glob(f"{DAGS_DIR}/*.py")
+    changed = []
+    for dag_file in dag_files:
+        filename = os.path.basename(dag_file)
+        backup_file = os.path.join(backup_dir, filename)
+        if not os.path.exists(backup_file):
+            print(f"New DAG file detected: {filename}")
+            changed.append(filename)
+        else:
+            with open(dag_file, "r") as f_new, open(backup_file, "r") as f_old:
+                if f_new.read() != f_old.read():
+                    print(f"Change detected in: {filename}")
+                    changed.append(filename)
+    if changed:
+        print(
+            "Detected changes in the following DAGs (Airflow will bump built-in DAG versions automatically):"
+        )
+        for name in changed:
+            print(f" - {name}")
+    else:
+        print("No DAG content changes detected.")
+    print("Skipping file edits; relying on Airflow built-in DAG versioning.")
+
+
 force_dag_refresh_task = PythonOperator(
     task_id="force_dag_refresh",
     python_callable=force_dag_refresh,
+    dag=dag,
+)
+
+update_versions_task = PythonOperator(
+    task_id="update_dag_versions",
+    python_callable=update_dag_versions,
     dag=dag,
 )
 
@@ -318,6 +354,7 @@ end_task = EmptyOperator(
     >> backup_task
     >> clone_repo_task
     >> sync_dags_task
+    >> update_versions_task
     >> validate_task
     >> force_dag_refresh_task
     >> final_cleanup_task

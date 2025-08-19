@@ -50,7 +50,7 @@ def print_hello_world():
     print(f"⏰ Current time: {datetime.now()}")
     print(f"🚀 Running on Airflow version: {airflow.__version__}")
     print("=" * 60)
-    print(f"📋 DAG VERSION: {DAG_VERSION}")
+    print(f"📋 DAG VERSION (built-in): {getattr(dag, 'version', 'unknown')}")
     print(f"📅 LAST UPDATED: {LAST_UPDATED}")
     print(f"🔄 SYNC TIMESTAMP: {datetime.now().isoformat()}")
     print("=" * 60)
@@ -69,7 +69,7 @@ def print_hello_world():
             print(f"⚠️  Could not read version file: {e}")
 
     print("=" * 60)
-    return f"Hello World from Airflow {airflow.__version__} - DAG v{DAG_VERSION} completed successfully!"
+    return f"Hello World from Airflow {airflow.__version__} - DAG v{getattr(dag, 'version', 'unknown')} completed successfully!"
 
 
 def print_system_info():
@@ -88,7 +88,7 @@ def print_system_info():
     print(
         f"🗄️  Database: {os.environ.get('AIRFLOW__DATABASE__SQL_ALCHEMY_CONN', 'Not set')}"
     )
-    print(f"📋 DAG VERSION: {DAG_VERSION}")
+    print(f"📋 DAG VERSION (built-in): {getattr(dag, 'version', 'unknown')}")
     print(f"📅 LAST UPDATED: {LAST_UPDATED}")
     print(f"🔄 SYNC TIMESTAMP: {datetime.now().isoformat()}")
     print("=" * 50)
