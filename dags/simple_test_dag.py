@@ -88,6 +88,9 @@ def print_system_info():
     print(
         f"🗄️  Database: {os.environ.get('AIRFLOW__DATABASE__SQL_ALCHEMY_CONN', 'Not set')}"
     )
+    print(f"📋 DAG VERSION: {DAG_VERSION}")
+    print(f"📅 LAST UPDATED: {LAST_UPDATED}")
+    print(f"🔄 SYNC TIMESTAMP: {datetime.now().isoformat()}")
     print("=" * 50)
     return f"Airflow {airflow.__version__} system info completed!"
 
