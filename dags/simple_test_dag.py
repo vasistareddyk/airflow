@@ -4,10 +4,15 @@ This DAG includes basic tasks to test if Airflow is working correctly.
 """
 
 from datetime import datetime, timedelta
+import os
 from airflow import DAG
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.standard.operators.empty import EmptyOperator
+
+# DAG Version tracking - Update this when making changes
+DAG_VERSION = "2.1.0"
+LAST_UPDATED = "2025-01-18"
 
 # Default arguments for the DAG
 default_args = {
@@ -24,10 +29,16 @@ default_args = {
 dag = DAG(
     "simple_test_dag",
     default_args=default_args,
-    description="A simple test DAG to verify Airflow setup",
+    description=f"A simple test DAG to verify Airflow setup - v{DAG_VERSION} (Updated: {LAST_UPDATED})",
     schedule="@daily",
     catchup=False,
-    tags=["test", "example"],
+    tags=["test", "example", "git-sync-updated", f"v{DAG_VERSION}"],
+    # Add version info to DAG params for visibility
+    params={
+        "dag_version": DAG_VERSION,
+        "last_updated": LAST_UPDATED,
+        "sync_timestamp": datetime.now().isoformat(),
+    },
 )
 
 
@@ -38,17 +49,31 @@ def print_hello_world():
     print("🎉 Hello World from Airflow 3.0!")
     print(f"⏰ Current time: {datetime.now()}")
     print(f"🚀 Running on Airflow version: {airflow.__version__}")
-    prin("testing")
-    print("=" * 50)
-    print("=" * 50)
+    print("=" * 60)
+    print(f"📋 DAG VERSION: {DAG_VERSION}")
+    print(f"📅 LAST UPDATED: {LAST_UPDATED}")
+    print(f"🔄 SYNC TIMESTAMP: {datetime.now().isoformat()}")
+    print("=" * 60)
     print("✨ Updated via Git Sync! This change was pulled from GitHub!")
     print("🔄 Testing DAG version update functionality!")
-    return f"Hello World from Airflow {airflow.__version__} completed successfully!"
+
+    # Check for version tracking file
+    version_file = "/opt/airflow/dags/.dag_version"
+    if os.path.exists(version_file):
+        try:
+            with open(version_file, "r") as f:
+                version_info = f.read()
+            print("📊 Git Sync Information:")
+            print(version_info)
+        except Exception as e:
+            print(f"⚠️  Could not read version file: {e}")
+
+    print("=" * 60)
+    return f"Hello World from Airflow {airflow.__version__} - DAG v{DAG_VERSION} completed successfully!"
 
 
 def print_system_info():
     """Print system information including Airflow version"""
-    import os
     import sys
     import airflow
 
@@ -97,6 +122,12 @@ bash_task = BashOperator(
     dag=dag,
 )
 
+git_sync_test_task = BashOperator(
+    task_id="git_sync_verification",
+    bash_command='echo "🔄 This task was added via Git Sync! DAG Version: $(date)"',
+    dag=dag,
+)
+
 end_task = EmptyOperator(
     task_id="end",
     dag=dag,
@@ -108,5 +139,6 @@ end_task = EmptyOperator(
     >> [hello_world_task, system_info_task]
     >> version_task
     >> bash_task
+    >> git_sync_test_task
     >> end_task
 )

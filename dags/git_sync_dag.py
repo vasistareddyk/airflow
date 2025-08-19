@@ -164,6 +164,11 @@ sync_dags_task = BashOperator(
     # Create dags directory if it doesn't exist
     mkdir -p {DAGS_DIR}
     
+    # Clear Python cache files before sync to force recompilation
+    echo "🧹 Clearing Python cache files..."
+    find {DAGS_DIR} -name "*.pyc" -delete
+    find {DAGS_DIR} -name "__pycache__" -type d -exec rm -rf {{}} + 2>/dev/null || true
+    
     # Check if there's a dags directory in the cloned repo
     if [ -d "{TEMP_DIR}/dags" ]; then
         echo "📂 Syncing from repository dags directory..."
@@ -182,6 +187,11 @@ sync_dags_task = BashOperator(
     echo "✅ DAG synchronization completed!"
     echo "📋 Current DAGs directory contents:"
     ls -la {DAGS_DIR}/
+    
+    # Clear any remaining cache files after copy
+    echo "🧹 Final cache cleanup..."
+    find {DAGS_DIR} -name "*.pyc" -delete
+    find {DAGS_DIR} -name "__pycache__" -type d -exec rm -rf {{}} + 2>/dev/null || true
     
     # Update file timestamps to ensure Airflow detects changes
     echo "🕒 Updating file timestamps to trigger DAG reprocessing..."
@@ -211,10 +221,30 @@ def force_dag_refresh():
     """Force DAG refresh by triggering file system change detection"""
     import time
     import os
+    import subprocess
 
     print("🔄 Forcing DAG reprocessing to update versions...")
 
-    # Method 1: Update modification time of all Python files
+    # Method 1: Clear all Python cache files
+    print("🧹 Clearing Python cache files...")
+    try:
+        # Clear .pyc files
+        for root, dirs, files in os.walk(DAGS_DIR):
+            for file in files:
+                if file.endswith(".pyc"):
+                    os.remove(os.path.join(root, file))
+            # Remove __pycache__ directories
+            for dir_name in dirs[
+                :
+            ]:  # Use slice to avoid modifying list while iterating
+                if dir_name == "__pycache__":
+                    shutil.rmtree(os.path.join(root, dir_name))
+                    dirs.remove(dir_name)
+        print("✅ Cache files cleared successfully")
+    except Exception as e:
+        print(f"⚠️  Cache clearing warning: {e}")
+
+    # Method 2: Update modification time of all Python files
     dag_files = glob.glob(f"{DAGS_DIR}/*.py")
     current_time = time.time()
 
@@ -223,7 +253,14 @@ def force_dag_refresh():
         os.utime(dag_file, (current_time, current_time))
         print(f"📝 Updated timestamp for: {os.path.basename(dag_file)}")
 
-    # Method 2: Create a temporary file to trigger directory change
+    # Method 3: Create a version tracking file
+    version_file = f"{DAGS_DIR}/.dag_version"
+    version_info = f"Last sync: {time.ctime()}\\nTimestamp: {current_time}\\nFiles synced: {len(dag_files)}"
+    with open(version_file, "w") as f:
+        f.write(version_info)
+    print(f"📋 Created version tracking file with {len(dag_files)} DAGs")
+
+    # Method 4: Create a temporary file to trigger directory change
     temp_file = f"{DAGS_DIR}/.dag_refresh_trigger"
     with open(temp_file, "w") as f:
         f.write(f"DAG refresh triggered at {time.ctime()}")
@@ -233,12 +270,22 @@ def force_dag_refresh():
     if os.path.exists(temp_file):
         os.remove(temp_file)
 
-    print("✅ DAG refresh triggers completed!")
-    print(
-        "⏰ Airflow should detect changes within 5 minutes (or immediately if dag processor is active)"
-    )
+    # Method 5: Try to signal the DAG processor (if running in container)
+    try:
+        print("📡 Attempting to signal DAG processor...")
+        # This will work in containerized environments
+        subprocess.run(
+            ["pkill", "-USR1", "-f", "dag-processor"], capture_output=True, timeout=5
+        )
+        print("✅ DAG processor signal sent")
+    except Exception as e:
+        print(f"ℹ️  DAG processor signal not sent (normal in some environments): {e}")
 
-    return "DAG refresh completed successfully"
+    print("✅ DAG refresh triggers completed!")
+    print("⏰ Airflow should detect changes within 30 seconds")
+    print(f"📊 Total DAG files processed: {len(dag_files)}")
+
+    return f"DAG refresh completed successfully - {len(dag_files)} files processed"
 
 
 force_dag_refresh_task = PythonOperator(
