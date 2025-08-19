@@ -96,6 +96,97 @@ def print_system_info():
     return f"Airflow {airflow.__version__} system info completed!"
 
 
+def get_git_commits():
+    """Fetch and display recent git commits from the repository"""
+    import subprocess
+    import os
+
+    print("🔍 FETCHING GIT COMMITS")
+    print("=" * 60)
+
+    # Check if we're in a git repository or if git bundle is available
+    git_paths = [
+        "/tmp/airflow/dag_bundles/git-dags/tracking_repo",  # GitDagBundle location
+        "/opt/airflow/dags",  # Local dags folder
+        "/tmp/airflow_repo_sync",  # Temporary sync location
+    ]
+
+    git_repo_path = None
+    for path in git_paths:
+        if os.path.exists(os.path.join(path, ".git")):
+            git_repo_path = path
+            break
+
+    if git_repo_path:
+        print(f"📂 Found git repository at: {git_repo_path}")
+        try:
+            # Change to git repository directory
+            os.chdir(git_repo_path)
+
+            # Get last 10 commits with pretty format
+            result = subprocess.run(
+                ["git", "log", "--oneline", "--decorate", "--graph", "-10"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if result.returncode == 0:
+                print("📋 RECENT COMMITS:")
+                print("-" * 40)
+                print(result.stdout)
+
+                # Get current branch and commit info
+                branch_result = subprocess.run(
+                    ["git", "branch", "--show-current"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+
+                commit_result = subprocess.run(
+                    ["git", "rev-parse", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+
+                if branch_result.returncode == 0:
+                    print(f"🌿 Current branch: {branch_result.stdout.strip()}")
+
+                if commit_result.returncode == 0:
+                    print(f"🔗 Current commit: {commit_result.stdout.strip()}")
+
+                # Get commit count
+                count_result = subprocess.run(
+                    ["git", "rev-list", "--count", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+
+                if count_result.returncode == 0:
+                    print(f"📊 Total commits: {count_result.stdout.strip()}")
+
+            else:
+                print(f"❌ Git log failed: {result.stderr}")
+
+        except subprocess.TimeoutExpired:
+            print("⏰ Git command timed out")
+        except Exception as e:
+            print(f"❌ Error running git commands: {e}")
+    else:
+        print("❌ No git repository found in expected locations")
+        print("📂 Checked paths:")
+        for path in git_paths:
+            exists = "✅" if os.path.exists(path) else "❌"
+            git_exists = "✅" if os.path.exists(os.path.join(path, ".git")) else "❌"
+            print(f"   {exists} {path} (git: {git_exists})")
+
+    print("=" * 60)
+    return "Git commits fetch completed!"
+
+
 # Define tasks
 start_task = EmptyOperator(
     task_id="start",
@@ -111,6 +202,13 @@ hello_world_task = PythonOperator(
 system_info_task = PythonOperator(
     task_id="system_info",
     python_callable=print_system_info,
+    dag=dag,
+)
+
+# NEW TASK: Git commits display
+git_commits_task = PythonOperator(
+    task_id="show_git_commits",
+    python_callable=get_git_commits,
     dag=dag,
 )
 
@@ -137,10 +235,10 @@ end_task = EmptyOperator(
     dag=dag,
 )
 
-# Define task dependencies
+# Define task dependencies - UPDATED to include git_commits_task
 (
     start_task
-    >> [hello_world_task, system_info_task]
+    >> [hello_world_task, system_info_task, git_commits_task]
     >> version_task
     >> bash_task
     >> git_sync_test_task
